@@ -470,3 +470,76 @@ If the data is separable, infinitely many hyperplanes work. The perceptron finds
 The SVM approaches this through the concept of the **margin**, defined as the smallest distance between the decision boundary and any of the samples; the decision boundary is chosen to be the one for which the margin is maximised.
 
 
+### Constructing the Max-Margin Classifier — the Primal QP
+
+**Critical distinction.** The boundary $y(\mathbf{x})=0$ is a *hyperplane in feature space* $\boldsymbol{\phi}$, but back in the *original input space* $\mathbf{x}$ it is the curve $\{\mathbf{x}: \mathbf{w}^\top\boldsymbol{\phi}(\mathbf{x})+b=0\}$, which is **nonlinear** whenever $\boldsymbol{\phi}$ is nonlinear. The kernel/feature map controls the *shape* of the input-space boundary (linear kernel $\to$ straight; polynomial $\to$ polynomial curve; RBF $\to$ arbitrarily wiggly). "Linear in $\boldsymbol{\phi}$, nonlinear in $\mathbf{x}$" is the entire point of kernelisation.
+![[Pasted image 20260530204126.png]]
+
+#### Step 1: Signed distance from a point to the boundary
+![[Pasted image 20260530204232.png]]
+We need the perpendicular distance from any point $\mathbf{x}$ to the surface $y(\mathbf{x})=0$. Two geometric facts:
+
+**(a) $\mathbf{w}$ is normal to the boundary.** Take any two points $\mathbf{x}_A, \mathbf{x}_B$ on the surface: $y(\mathbf{x}_A)=y(\mathbf{x}_B)=0$. Subtracting gives $\mathbf{w}^\top(\mathbf{x}_A - \mathbf{x}_B)=0$ (the bias cancels). Since $\mathbf{x}_A - \mathbf{x}_B$ is an arbitrary direction *within* the surface, $\mathbf{w}$ is orthogonal to every in-surface direction — i.e. $\mathbf{w}$ is the normal.
+
+**(b) Decomposition.** The normal direction and the surface together span the whole space, so every $\mathbf{x}$ splits uniquely into its orthogonal projection $\mathbf{x}_\perp$ onto the surface (satisfying $y(\mathbf{x}_\perp)=0$) plus a displacement $r$ along the unit normal:
+$$
+\mathbf{x} = \mathbf{x}_\perp + r\,\frac{\mathbf{w}}{\|\mathbf{w}\|}.
+$$
+The scalar $r$ is the **signed** distance — positive on the side $\mathbf{w}$ points toward, negative on the other. Substituting into $y$:
+$$
+y(\mathbf{x}) = \mathbf{w}^\top\!\Big(\mathbf{x}_\perp + r\,\frac{\mathbf{w}}{\|\mathbf{w}\|}\Big) + b = \underbrace{\big(\mathbf{w}^\top\mathbf{x}_\perp + b\big)}_{=\,0\;\text{(since }\mathbf{x}_\perp\text{ is on the surface)}} + r\,\frac{\|\mathbf{w}\|^2}{\|\mathbf{w}\|} = r\|\mathbf{w}\|.
+$$
+Therefore
+$$
+r = \frac{y(\mathbf{x})}{\|\mathbf{w}\|}.
+$$
+For correctly classified points, $\text{sign}(y(\mathbf{x}_n)) = t_n$, so multiplying by $t_n$ turns the signed distance into the positive unsigned distance (Bishop 7.2):
+$$
+\text{distance of } \mathbf{x}_n \text{ to boundary} = \frac{t_n\, y(\mathbf{x}_n)}{\|\mathbf{w}\|} = \frac{t_n(\mathbf{w}^\top\boldsymbol{\phi}(\mathbf{x}_n)+b)}{\|\mathbf{w}\|}. \tag{7.2}
+$$
+
+#### Step 2: The raw max-margin objective
+
+The margin is the distance to the *closest* point; we maximise it over $\mathbf{w},b$ (Bishop 7.3):
+$$
+\arg\max_{\mathbf{w},b}\left\{\frac{1}{\|\mathbf{w}\|}\,\min_n\big[t_n(\mathbf{w}^\top\boldsymbol{\phi}(\mathbf{x}_n)+b)\big]\right\}. \tag{7.3}
+$$
+The $\frac{1}{\|\mathbf{w}\|}$ factors outside the $\min_n$ because it does not depend on $n$. This is correct but nasty to optimise: a nested max-min, with $\mathbf{w}$ coupling the inner and outer parts.
+
+#### Step 3: Scale invariance rescues us
+
+**Key observation.** The objective is invariant to rescaling $(\mathbf{w},b) \to (\kappa\mathbf{w}, \kappa b)$ for any $\kappa > 0$. The inner $\min_n[\cdot]$ scales by $\kappa$; the $\frac{1}{\|\mathbf{w}\|}$ scales by $\frac{1}{\kappa}$; they cancel. So $(\mathbf{w},b)$ and $(\kappa\mathbf{w},\kappa b)$ describe the **same hyperplane with the same margin** — the solution is an entire equivalence ray, and the value of the inner $\min$ is meaningless on its own (it just reflects the arbitrary scale choice).
+
+We may therefore **fix the scale to a convenient value**. Choose $\kappa$ so the closest point satisfies (Bishop 7.4):
+$$
+t_n(\mathbf{w}^\top\boldsymbol{\phi}(\mathbf{x}_n)+b) = 1 \quad\text{(for the closest point)}. \tag{7.4}
+$$
+We can always do this: if the current minimum is $m>0$, set $\kappa = 1/m$. This is the **canonical representation**.
+
+**Where the inner $\min$ goes — it becomes the constraints.** Once the closest point equals 1 and it *is* the minimum, every other point is automatically $\ge 1$ (Bishop 7.5):
+$$
+t_n(\mathbf{w}^\top\boldsymbol{\phi}(\mathbf{x}_n)+b) \ge 1, \qquad n=1,\dots,N. \tag{7.5}
+$$
+The inner optimisation has been *converted into inequality constraints*. Points where equality holds ($=1$) are **active constraints** = the support vectors lying on the margin hyperplanes $y=\pm1$; points with strict inequality are inactive. There is always $\ge 1$ active constraint, and after maximising the margin, $\ge 2$ (one on each side).
+
+#### Step 4: Max margin becomes a clean minimisation
+
+With the scale fixed, the closest-point distance is $\frac{1}{\|\mathbf{w}\|}$, so the objective is to **maximise** $\frac{1}{\|\mathbf{w}\|}$. We convert via monotonic transforms:
+- *Reciprocal:* $\max\frac{1}{\|\mathbf{w}\|} \iff \min\|\mathbf{w}\|$.
+- *Square:* squaring is strictly increasing on $[0,\infty)$, so it preserves the minimiser: $\min\|\mathbf{w}\| \iff \min\|\mathbf{w}\|^2$.
+- *Factor $\frac{1}{2}$:* a positive constant does not move the minimiser; included so $\nabla\frac{1}{2}\|\mathbf{w}\|^2 = \mathbf{w}$ is clean.
+
+The reason to square: $\|\mathbf{w}\| = \sqrt{\mathbf{w}^\top\mathbf{w}}$ is non-smooth (square root), while $\|\mathbf{w}\|^2 = \mathbf{w}^\top\mathbf{w}$ is a smooth convex quadratic — exactly the form a QP solver wants. Same minimiser, nicer function.
+
+#### The Primal SVM Problem (Bishop 7.6 subject to 7.5)
+
+$$
+\boxed{\ \min_{\mathbf{w},b}\ \tfrac{1}{2}\|\mathbf{w}\|^2 \quad\text{subject to}\quad t_n(\mathbf{w}^\top\boldsymbol{\phi}(\mathbf{x}_n)+b)\ge 1,\ \ n=1,\dots,N.\ } \tag{7.6}
+$$
+
+This is a **quadratic program** (QP): convex quadratic objective, linear inequality constraints. Convexity guarantees any local optimum is global. The bias $b$ appears absent from the objective but is determined *implicitly* through the constraints — changes to $\|\mathbf{w}\|$ must be compensated by changes to $b$ to keep the constraints satisfied.
+
+**Summary of the logic chain.** Distance $= \frac{t_n y(\mathbf{x}_n)}{\|\mathbf{w}\|}$ $\;\to\;$ maximise the smallest such distance $\;\to\;$ exploit scale invariance to fix the closest point to 1 (turning the inner min into constraints $\ge 1$) $\;\to\;$ maximising $\frac{1}{\|\mathbf{w}\|}$ becomes minimising $\frac{1}{2}\|\mathbf{w}\|^2$ $\;\to\;$ a convex QP.
+
+Forming the **dual** (next section) is what reveals the kernel formulation and the support-vector sparsity.
+
