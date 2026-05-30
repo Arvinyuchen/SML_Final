@@ -439,3 +439,34 @@ p(\mathbf{z})
 \,d\mathbf{z}.
 $$
 Hidden Markov Model with sequences of length $L$.
+
+
+## Sparse Kernel Machines
+
+Kernel algorithms have a serious limitation: the kernel $k(\mathbf{x}_n, \mathbf{x}_m)$ must be evaluated for **all pairs** of training points, making the Gram matrix $\mathbf{K}$ an $N \times N$ dense matrix. This is computationally infeasible at training time and slow at prediction time. Recall from (6.9) that kernel ridge regression's prediction
+$$
+y(\mathbf{x}) = \mathbf{k}(\mathbf{x})^\top (\mathbf{K} + \lambda \mathbf{I}_N)^{-1} \mathbf{t}
+$$
+sums over *every* training point. We now look at kernel-based algorithms that have **sparse** solutions, so that predictions for new inputs depend only on the kernel function evaluated at a *subset* of the training data points. That subset is the *support vectors*.
+
+We begin by looking in some detail at the *support vector machine* (SVM), a **non-probabilistic, non-parametric** classifier related to kernel logistic regression. The SVM is a decision machine and does not provide posterior probabilities. An important property of SVMs is that the determination of the model parameters corresponds to a **convex optimisation** problem, and so any local solution is also a global optimum — no local-minima worries, unlike neural nets.
+
+### The Linear Model for Two Classes (Bishop 7.1)
+
+The classifier is
+$$
+y(\mathbf{x}) = \mathbf{w}^\top \boldsymbol{\phi}(\mathbf{x}) + b, \tag{7.1}
+$$
+with feature map $\boldsymbol{\phi}$ (so kernelisable) and **explicit bias** $b$. Bishop makes $b$ explicit deliberately, because the dual will eliminate working in feature space. Two SVM-specific conventions, both different from earlier chapters:
+- Targets $t_n \in \{-1, +1\}$, not $\{0,1\}$.
+- New points classified by $\text{sign}(y(\mathbf{x}))$.
+
+**The separability assumption.** Assume the data is linearly separable in feature space: there exists at least one choice of parameters $\mathbf{w}$ and $b$ such that $y(\mathbf{x}_n) > 0$ for points with $t_n = +1$ and $y(\mathbf{x}_n) < 0$ for points with $t_n = -1$, so that $t_n y(\mathbf{x}_n) > 0$ for all training points. That single product condition $t_n y(\mathbf{x}_n) > 0$ is the compact statement of "correctly classified," and it is clean precisely *because* of the $\pm 1$ convention.
+
+### The Multiple-Separator Problem (Bishop p. 326)
+
+If the data is separable, infinitely many hyperplanes work. The perceptron finds one, but the solution it finds depends on the arbitrary initial values of $\mathbf{w}$ and $b$ and on the order in which data points are presented. So: of all separating hyperplanes, which generalises best?
+
+The SVM approaches this through the concept of the **margin**, defined as the smallest distance between the decision boundary and any of the samples; the decision boundary is chosen to be the one for which the margin is maximised.
+
+
