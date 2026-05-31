@@ -543,3 +543,253 @@ This is a **quadratic program** (QP): convex quadratic objective, linear inequal
 
 Forming the **dual** (next section) is what reveals the kernel formulation and the support-vector sparsity.
 
+### Lagrange Multipliers & KKT Conditions (Bishop App. E, §7.1)
+
+This is both a general optimisation toolkit and its specific application to the SVM primal.
+
+#### Lagrange Multipliers — Equality Constraints (Bishop App. E)
+
+**Problem.** Maximise $f(\mathbf{x})$ subject to $g(\mathbf{x}) = 0$. Form the **Lagrangian**
+$$
+\mathcal{L}(\mathbf{x}, \lambda) = f(\mathbf{x}) + \lambda\, g(\mathbf{x}),
+$$
+where $\lambda$ is the **Lagrange multiplier**, and find its stationary points ($\nabla_{\mathbf{x}}\mathcal{L} = 0$ and $\partial\mathcal{L}/\partial\lambda = 0$).
+
+**Why it works (Fig. E.1).** The constraint $g(\mathbf{x})=0$ is a $(D{-}1)$-dimensional surface. Two facts:
+- $\nabla g$ is **perpendicular** to the constraint surface (gradients point normal to level sets).
+- At a constrained optimum, $\nabla f$ must *also* be perpendicular to the surface — if it had any component *along* the surface, one could move along the surface (staying feasible) and increase $f$, contradicting optimality.
+![[Pasted image 20260531100500.png]]
+
+Both gradients perpendicular to the same surface $\implies$ they are **parallel**: $\nabla f = -\lambda \nabla g$ for some scalar $\lambda$, i.e. $\nabla f + \lambda \nabla g = 0$. That is exactly $\nabla_{\mathbf{x}}\mathcal{L} = 0$. And $\partial\mathcal{L}/\partial\lambda = 0$ simply re-imposes $g(\mathbf{x})=0$. So stationarity of $\mathcal{L}$ encodes "feasible + gradients aligned."
+
+#### Inequality Constraints & the KKT Conditions (Bishop App. E)
+
+**Problem.** Maximise $f(\mathbf{x})$ subject to $g(\mathbf{x}) \ge 0$. Same Lagrangian $\mathcal{L} = f + \lambda g$, but the analysis splits into **two cases**:
+
+- **Constraint inactive** ($g(\mathbf{x}) > 0$, optimum in the interior): the constraint is not doing anything, so it reduces to an unconstrained max — $\nabla f = 0$ and $\lambda = 0$.
+- **Constraint active** ($g(\mathbf{x}) = 0$, optimum on the boundary): like the equality case, $\nabla f = -\lambda \nabla g$. But now the **sign of $\lambda$ matters**: for a maximisation with $g \ge 0$, $\nabla f$ must point into the infeasible direction (opposite $\nabla g$), forcing $\lambda > 0$.
+
+Both cases are captured simultaneously by the **Karush–Kuhn–Tucker (KKT) conditions**:
+$$
+\begin{aligned}
+g(\mathbf{x}) &\ge 0 && \text{(E.9, primal feasibility)} \\
+\lambda &\ge 0 && \text{(E.10, dual feasibility)} \\
+\lambda\, g(\mathbf{x}) &= 0 && \text{(E.11, complementary slackness)}
+\end{aligned}
+$$
+
+**Complementary slackness (E.11) is the crucial condition.** The product $\lambda\, g(\mathbf{x}) = 0$ forces *at least one* factor to vanish: if $g > 0$ (inactive) then $\lambda = 0$; if $\lambda > 0$ then $g = 0$ (active). This is exactly the mechanism that produces **sparsity** in the SVM.
+
+![[Pasted image 20260531100650.png]]
+
+#### Applying KKT to the SVM Primal (Bishop 7.7–7.9)
+
+Take the primal (7.6): minimise $\frac{1}{2}\|\mathbf{w}\|^2$ subject to $t_n(\mathbf{w}^\top\boldsymbol{\phi}(\mathbf{x}_n)+b) \ge 1$. Rewrite each constraint as $g_n := t_n(\mathbf{w}^\top\boldsymbol{\phi}(\mathbf{x}_n)+b) - 1 \ge 0$, and introduce **one multiplier $a_n \ge 0$ per constraint**. The Lagrangian (Bishop 7.7):
+$$
+L(\mathbf{w}, b, \mathbf{a}) = \frac{1}{2}\|\mathbf{w}\|^2 - \sum_{n=1}^{N} a_n \big\{ t_n(\mathbf{w}^\top\boldsymbol{\phi}(\mathbf{x}_n) + b) - 1 \big\}. \tag{7.7}
+$$
+The **minus sign** arises because we *minimise* over $(\mathbf{w}, b)$ but *maximise* over $\mathbf{a}$ — the multiplier term is subtracted to enforce the $\ge$ constraints in a minimisation problem.
+
+**Stationarity conditions — differentiate and set to zero:**
+
+Setting $\partial L / \partial \mathbf{w} = 0$: the objective contributes $\mathbf{w}$, the sum contributes $-\sum_n a_n t_n \boldsymbol{\phi}(\mathbf{x}_n)$:
+$$
+\boxed{\ \mathbf{w} = \sum_{n=1}^{N} a_n\, t_n\, \boldsymbol{\phi}(\mathbf{x}_n)\ } \tag{7.8}
+$$
+This is the representer form — $\mathbf{w}$ is a linear combination of the (label-signed) training feature vectors, weighted by the multipliers.
+
+Setting $\partial L / \partial b = 0$: only $-\sum_n a_n t_n b$ depends on $b$:
+$$
+\boxed{\ \sum_{n=1}^{N} a_n\, t_n = 0\ } \tag{7.9}
+$$
+
+**The KKT conditions for the SVM (Bishop 7.14–7.16):** applying E.9–E.11 to each constraint gives
+$$
+a_n \ge 0, \qquad t_n\, y(\mathbf{x}_n) - 1 \ge 0, \qquad a_n\{t_n\, y(\mathbf{x}_n) - 1\} = 0. \tag{7.14–7.16}
+$$
+
+The complementary-slackness condition $a_n\{t_n\, y(\mathbf{x}_n) - 1\} = 0$ is the punchline: **for every point, either $a_n = 0$ or $t_n\, y(\mathbf{x}_n) = 1$.**
+
+- **$a_n = 0$:** the point drops out of $\mathbf{w} = \sum_n a_n t_n \boldsymbol{\phi}(\mathbf{x}_n)$ entirely — it plays *no role* in prediction. These are the non-support-vectors.
+- **$a_n > 0$:** must have $t_n\, y(\mathbf{x}_n) = 1$, i.e. the point lies *exactly on the margin* hyperplanes $y = \pm 1$. These are the **support vectors**.
+
+This is the origin of sparsity: only the support vectors (points on the margin) contribute to $\mathbf{w}$ and hence to predictions. Substituting (7.8) and (7.9) back into the Lagrangian produces the kernelised dual.
+
+#### The Dual Problem (Bishop 7.10–7.13)
+
+Substitute (7.8) and (7.9) back into the Lagrangian (7.7). The $\mathbf{w}$ and $b$ terms collapse, and the result — after algebra — is expressed entirely in terms of the multipliers:
+$$
+\widetilde{L}(\mathbf{a}) = \sum_{n=1}^{N} a_n - \frac{1}{2}\sum_{n=1}^{N}\sum_{m=1}^{N} a_n\, a_m\, t_n\, t_m\, k(\mathbf{x}_n, \mathbf{x}_m) \tag{7.10}
+$$
+subject to $a_n \ge 0$ and $\sum_n a_n t_n = 0$. This is a **quadratic program in $\mathbf{a}$**, and it depends on the data only through the kernel $k(\mathbf{x}_n, \mathbf{x}_m)$ — the feature map $\boldsymbol{\phi}$ never appears explicitly.
+
+Once the optimal $\mathbf{a}^*$ is found, prediction for a new input uses (7.8) substituted into $y$:
+$$
+y(\mathbf{x}) = \sum_{n=1}^{N} a_n\, t_n\, k(\mathbf{x}, \mathbf{x}_n) + b. \tag{7.13}
+$$
+By sparsity, only terms with $a_n > 0$ (support vectors) contribute to this sum.
+
+### Soft-Margin SVM (Bishop §7.1.1)
+
+#### The Problem with Hard Margins
+
+Everything above assumed the data is *linearly separable* in feature space. With overlapping classes that is impossible: no hyperplane satisfies all the constraints, so the hard-margin feasible set is **empty** and the QP has no solution. Even when separation is barely possible, insisting on it lets a single outlier drag the boundary into a terrible position with a tiny margin.
+
+#### Slack Variables (Bishop 7.20)
+
+Introduce one **slack variable** $\xi_n \ge 0$ per point and relax the constraint:
+$$
+t_n\, y(\mathbf{x}_n) \ge 1 - \xi_n, \qquad \xi_n \ge 0. \tag{7.20}
+$$
+
+Three regimes:
+
+| $\xi_n$ value | Meaning |
+|---|---|
+| $\xi_n = 0$ | Point on or beyond its margin boundary — same as hard margin |
+| $0 < \xi_n \le 1$ | Inside the margin but still correctly classified |
+| $\xi_n > 1$ | On the wrong side of the decision boundary — **misclassified** |
+![[Pasted image 20260531112829.png]]
+Since each misclassified point contributes $> 1$ to $\sum_n \xi_n$, this sum is an **upper bound** on the number of misclassifications (not the exact count, because correctly-classified-but-inside-margin points also add their bit).
+
+#### The Soft-Margin Objective (Bishop 7.21)
+
+$$
+\min_{\mathbf{w}, b, \boldsymbol{\xi}}\ C\sum_{n=1}^{N} \xi_n + \frac{1}{2}\|\mathbf{w}\|^2 \qquad \text{subject to (7.20)}. \tag{7.21}
+$$
+
+This is a tradeoff: $\frac{1}{2}\|\mathbf{w}\|^2$ wants a wide margin; $C\sum \xi_n$ penalises violations. The parameter $C > 0$ sets the exchange rate:
+- **Large $C$** — violations are expensive, model pushes $\xi_n \to 0$, approaching the hard margin. Low bias, high variance.
+- **Small $C$** — violations are cheap, model tolerates them for a fatter margin. More regularised.
+
+Still a convex QP (convex objective, linear constraints), so global-optimum guarantees carry over.
+
+#### Soft-Margin Lagrangian and Stationarity (Bishop 7.22)
+
+Two sets of inequality constraints yield two sets of multipliers: $a_n \ge 0$ for the margin constraints and $\mu_n \ge 0$ for $\xi_n \ge 0$:
+$$
+L = \frac{1}{2}\|\mathbf{w}\|^2 + C\sum_n \xi_n - \sum_n a_n\{t_n\, y(\mathbf{x}_n) - 1 + \xi_n\} - \sum_n \mu_n \xi_n. \tag{7.22}
+$$
+
+The $\mathbf{w}$ and $b$ stationarity conditions are **identical** to the hard-margin case:
+$$
+\frac{\partial L}{\partial \mathbf{w}} = 0 \;\Rightarrow\; \mathbf{w} = \sum_n a_n\, t_n\, \boldsymbol{\phi}(\mathbf{x}_n), \qquad \frac{\partial L}{\partial b} = 0 \;\Rightarrow\; \sum_n a_n\, t_n = 0.
+$$
+
+The new condition comes from $\partial L / \partial \xi_n = 0$. Each $\xi_n$ appears in $C\xi_n - a_n \xi_n - \mu_n \xi_n$:
+$$
+\frac{\partial L}{\partial \xi_n} = C - a_n - \mu_n = 0 \quad\Longrightarrow\quad a_n = C - \mu_n.
+$$
+Since $\mu_n \ge 0$, this gives $a_n \le C$. Combined with $a_n \ge 0$, the multiplier is now **boxed**:
+$$
+\boxed{\ 0 \le a_n \le C\ } \tag{7.33}
+$$
+
+#### The Soft-Margin Dual (Bishop 7.32–7.34)
+
+Substitute everything back. The slack terms cancel exactly (using $C = a_n + \mu_n$), and $\xi_n$ vanishes from the dual entirely — just as $b$ did. What remains is:
+$$
+\widetilde{L}(\mathbf{a}) = \sum_n a_n - \frac{1}{2}\sum_n \sum_m a_n\, a_m\, t_n\, t_m\, k(\mathbf{x}_n, \mathbf{x}_m) \tag{7.32}
+$$
+subject to $0 \le a_n \le C$ (7.33) and $\sum_n a_n t_n = 0$ (7.34).
+
+**The dual objective is identical to the hard-margin dual (7.10).** The *only* structural change is that $a_n \ge 0$ became $0 \le a_n \le C$. All the overlapping-class machinery — slack variables, penalty, second set of multipliers — collapses into a single upper bound on the multipliers. The prediction function (7.13) is unchanged.
+
+#### Three Types of Points Under the Box Constraint
+
+| $a_n$ | $\mu_n = C - a_n$ | Position | Role |
+|---|---|---|---|
+| $a_n = 0$ | $\mu_n = C$ | On or beyond margin, $\xi_n = 0$ | **Not** a support vector |
+| $0 < a_n < C$ | $\mu_n > 0 \;\Rightarrow\; \xi_n = 0$ | Exactly on margin, $t_n y(\mathbf{x}_n) = 1$ | **Margin** support vector |
+| $a_n = C$ | $\mu_n = 0 \;\Rightarrow\; \xi_n \ge 0$ | Inside margin or misclassified | **Bound** support vector |
+
+The logic for the middle row: $0 < a_n < C$ means $\mu_n > 0$, and complementary slackness $\mu_n \xi_n = 0$ forces $\xi_n = 0$, so the point sits exactly on the margin. For the bottom row: $a_n = C$ means $\mu_n = 0$, which releases $\xi_n$ to be positive.
+
+**Consequence for recovering $b$:** only the *margin* support vectors ($0 < a_n < C$) satisfy $t_n\, y(\mathbf{x}_n) = 1$, so only they can be used to solve for $b$ via (7.13). Bound support vectors ($a_n = C$) have $t_n\, y < 1$ and would give a wrong $b$.
+
+### Hinge Loss and the Relation to Logistic Regression (Bishop §7.1.1)
+
+#### Rewriting the SVM as Hinge Loss (Bishop 7.44)
+
+Start from the soft-margin objective (7.21). The constraints force $\xi_n \ge 1 - t_n y(\mathbf{x}_n)$ and $\xi_n \ge 0$, and the minimisation pushes each $\xi_n$ as small as possible, so it settles at
+$$
+\xi_n = \max(0,\; 1 - t_n\, y(\mathbf{x}_n)) = [1 - t_n\, y(\mathbf{x}_n)]_+.
+$$
+Substituting turns the constrained problem into an **unconstrained** one:
+$$
+\sum_{n=1}^{N} \underbrace{[1 - t_n\, y(\mathbf{x}_n)]_+}_{E_{\text{SV}}(t_n\, y(\mathbf{x}_n))} + \lambda\|\mathbf{w}\|^2. \tag{7.44}
+$$
+The function $E_{\text{SV}}(z) = [1 - z]_+$ is the **hinge loss**: zero once correctly classified past the margin ($z \ge 1$), then rising linearly as the point moves toward or past the boundary.
+
+#### The Unifying View — Loss + Regulariser
+
+All three models are "$\sum_n \text{loss} + \frac{\lambda}{2}\|\mathbf{w}\|^2$" with the same L2 regulariser but different losses:
+
+| Model | Loss $E(z)$ where $z = t_n\, y(\mathbf{x}_n)$ |
+|---|---|
+| Linear regression | $\{t_n - \mathbf{w}^\top\boldsymbol{\phi}(\mathbf{x}_n)\}^2$ (squared error) |
+| Logistic regression | $\log(1 + \exp(-t_n\, \mathbf{w}^\top\boldsymbol{\phi}(\mathbf{x}_n)))$ (cross-entropy) |
+| SVM | $[1 - t_n\, \mathbf{w}^\top\boldsymbol{\phi}(\mathbf{x}_n)]_+$ (hinge) |
+
+#### Comparing the Losses (Figure 7.5)
+
+![[Pasted image 20260531123551.png]]
+Plot all losses against the margin quantity $z = t_n\, y(\mathbf{x}_n)$:
+
+- **Hinge** and **log loss** are remarkably similar — both are convex upper bounds on the 0/1 misclassification step function, both penalise being on the wrong side heavily and reward confident correctness. An SVM and L2-regularised logistic regression are solving almost the same optimisation with slightly different loss shapes, so they usually give similar decision boundaries.
+- **Hinge has a flat zero for $z \ge 1$** — once a point is past the margin it contributes *exactly nothing*. This flat region is the source of SVM sparsity: those points get $a_n = 0$. Log loss *never* reaches exactly zero — every point keeps contributing, so logistic regression has no sparsity.
+- **Hinge has a kink at $z = 1$** (non-differentiable), requiring QP/subgradient methods rather than the smooth gradient descent logistic regression enjoys.
+- **Log loss gives probabilities** ($\sigma(y)$ is a calibrated $p(t{=}1|\mathbf{x})$); hinge gives only a decision — this is the limitation that SVMs do not output posterior probabilities.
+- **Squared loss** increases again for $z > 1$, penalising points for being "too correct" — this is why squared loss is unsuitable for classification.
+
+### SVM for Regression (Bishop §7.1.2)
+
+#### The $\epsilon$-Insensitive Error Function (Bishop 7.51)
+
+Ordinary regression uses squared loss — every deviation is penalised. Support vector regression replaces it with the **$\epsilon$-insensitive loss**:
+$$
+E_\epsilon(y(\mathbf{x}) - t) = \begin{cases} 0 & \text{if } |y(\mathbf{x}) - t| < \epsilon \\ |y(\mathbf{x}) - t| - \epsilon & \text{otherwise} \end{cases} \tag{7.51}
+$$
+The flat zero region creates a **tube** of tolerance of width $\pm\epsilon$ — predictions within $\epsilon$ of the target cost nothing. This flat region produces **sparsity**: points inside the tube have zero loss and will not be support vectors.
+![[Pasted image 20260531123814.png]]
+
+The objective is the familiar loss + regulariser (Bishop 7.52):
+$$
+C\sum_{n=1}^{N} E_\epsilon(y(\mathbf{x}_n) - t_n) + \frac{1}{2}\|\mathbf{w}\|^2. \tag{7.52}
+$$
+
+#### Why Slack Variables? The Hinge-Loss Trick in Reverse
+
+In classification (slide 29), we went from constrained-with-slack to unconstrained-with-loss by eliminating $\xi_n = [1 - t_n y_n]_+$. Constrained-with-slack and unconstrained-with-loss are **two encodings of the same problem** — the slack variable *is* the loss, lifted into an extra dimension so the kink becomes linear.
+
+Regression starts from the other encoding: we begin with $E_\epsilon$ and to feed it to a QP solver we must *introduce* slack variables to linearise it. The reason is mechanical: $E_\epsilon$ has a non-differentiable kink (like the hinge), and QP solvers want a smooth quadratic objective with *linear* constraints. The slack variable absorbs the kink:
+$$
+|y_n - t_n| - \epsilon \;\text{ (outside tube)} \;=\; \min(\xi_n + \hat{\xi}_n) \;\text{ s.t. } \begin{cases} y_n - t_n \le \epsilon + \xi_n \\ t_n - y_n \le \epsilon + \hat{\xi}_n \\ \xi_n, \hat{\xi}_n \ge 0 \end{cases}
+$$
+The left side is a kinked loss; the right side is two linear inequalities plus nonnegativity — exactly the ingredients of a QP. We trade "one variable with an awkward $|\cdot|$ and a flat spot" for "two well-behaved nonnegative variables with linear constraints."
+
+#### Two Sets of Slack Variables
+
+In classification, a point can only violate the margin from one side. In regression, a point can fall outside the tube either **above** or **below** — these are mutually exclusive, so two slack variables per point are needed:
+- $\xi_n \ge 0$ — distance above the tube ($y(\mathbf{x}_n) > t_n + \epsilon$).
+- $\hat{\xi}_n \ge 0$ — distance below the tube ($y(\mathbf{x}_n) < t_n - \epsilon$).
+- Inside the tube: both zero.
+![[Pasted image 20260531123829.png]]
+
+The objective becomes $C\sum_n(\xi_n + \hat{\xi}_n) + \frac{1}{2}\|\mathbf{w}\|^2$. After the full Lagrangian/dual treatment with two multiplier sets $a_n, \hat{a}_n$, the dual is (Bishop 7.61):
+$$
+\widetilde{L}(\mathbf{a}, \hat{\mathbf{a}}) = -\frac{1}{2}\sum_n \sum_m (a_n - \hat{a}_n)(a_m - \hat{a}_m)\, k(\mathbf{x}_n, \mathbf{x}_m) - \epsilon\sum_n (a_n + \hat{a}_n) + \sum_n (a_n - \hat{a}_n)\, t_n. \tag{7.61}
+$$
+The multipliers always appear as the **difference** $(a_n - \hat{a}_n)$ — a point cannot be above *and* below simultaneously, so at most one of each pair is nonzero. This difference plays the role that $a_n t_n$ played in classification.
+
+#### Prediction and Support Vectors (Bishop 7.64)
+
+$$
+y(\mathbf{x}) = \sum_{n=1}^{N} (a_n - \hat{a}_n)\, k(\mathbf{x}, \mathbf{x}_n) + b. \tag{7.64}
+$$
+The support vectors are precisely the points **on or outside the $\epsilon$-tube**. Points inside the tube have $a_n = \hat{a}_n = 0$ and do not enter the sum — the same sparsity story as the classifier.
+
+#### The Unifying Picture
+
+Across the whole chapter, one template recurs: **loss $+ \frac{1}{2}\|\mathbf{w}\|^2$**, where a loss with a *flat zero region* (hinge for classification, $\epsilon$-insensitive for regression) produces sparse solutions via KKT complementary slackness, and the dual expresses everything through kernels. Classification needs one slack/multiplier per point (violation is one-directional); regression needs two (the tube can be breached from either side).
+
